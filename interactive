@@ -1,0 +1,377 @@
+import React, { useState, useEffect } from 'react';
+import { Beaker, Atom, Hexagon, Layers, ArrowRight, RotateCcw, CheckCircle2, AlertCircle, Info, Lightbulb, ChevronRight, HelpCircle } from 'lucide-react';
+
+const MatterClassifier = () => {
+  const [view, setView] = useState('menu'); // menu, explore, build, quiz
+  const [activeSubstance, setActiveSubstance] = useState(null);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [score, setScore] = useState(0);
+  const [feedback, setFeedback] = useState(null);
+  const [buildSlot, setBuildSlot] = useState([]);
+  const [buildStep, setBuildStep] = useState(0);
+  const [quizSelection, setQuizSelection] = useState(null);
+
+  // Core Data
+  const atomTypes = {
+    H: { color: '#e2e8f0', label: 'H', name: 'Hydrogen' },
+    O: { color: '#ef4444', label: 'O', name: 'Oxygen' },
+    C: { color: '#1e293b', label: 'C', name: 'Carbon' },
+    Cl: { color: '#84cc16', label: 'Cl', name: 'Chlorine' },
+    Na: { color: '#a855f7', label: 'Na', name: 'Sodium' },
+    He: { color: '#fcd34d', label: 'He', name: 'Helium' },
+    Au: { color: '#fbbf24', label: 'Au', name: 'Gold' },
+    Fe: { color: '#94a3b8', label: 'Fe', name: 'Iron' },
+    N: { color: '#3b82f6', label: 'N', name: 'Nitrogen' },
+    Ar: { color: '#d8b4fe', label: 'Ar', name: 'Argon' },
+    P: { color: '#f97316', label: 'P', name: 'Phosphorus' }
+  };
+
+  const substances = [
+    { 
+      id: 'h2', 
+      name: 'Hydrogen Gas', 
+      formula: 'H₂', 
+      type: 'Element', 
+      structure: 'Molecule', 
+      desc: 'Two identical hydrogen atoms bonded together.',
+      atoms: [atomTypes.H, atomTypes.H]
+    },
+    { 
+      id: 'h2o', 
+      name: 'Water', 
+      formula: 'H₂O', 
+      type: 'Compound', 
+      structure: 'Molecule', 
+      desc: 'Two hydrogen atoms bonded to one oxygen atom.',
+      atoms: [atomTypes.O, atomTypes.H, atomTypes.H]
+    },
+    { 
+      id: 'fe', 
+      name: 'Iron', 
+      formula: 'Fe', 
+      type: 'Element', 
+      structure: 'Atom', 
+      desc: 'A single atom of iron.',
+      atoms: [atomTypes.Fe]
+    },
+    { 
+      id: 'co2', 
+      name: 'Carbon Dioxide', 
+      formula: 'CO₂', 
+      type: 'Compound', 
+      structure: 'Molecule', 
+      desc: 'One carbon atom bonded to two oxygen atoms.',
+      atoms: [atomTypes.C, atomTypes.O, atomTypes.O]
+    }
+  ];
+
+  const buildChallenges = [
+    { target: 'Water', formula: 'H₂O', req: { O: 1, H: 2 }, hint: "Compound Molecule", atomsToProvide: ['O', 'H'] },
+    { target: 'Methane', formula: 'CH₄', req: { C: 1, H: 4 }, hint: "Compound Molecule", atomsToProvide: ['C', 'H'] },
+    { target: 'Oxygen Gas', formula: 'O₂', req: { O: 2 }, hint: "Elemental Molecule", atomsToProvide: ['O'] }
+  ];
+
+  // Standardized options for the first 10 questions
+  const standardOptions = [
+    "Type: Element & Structure: Atom",
+    "Type: Element & Structure: Molecule",
+    "Type: Compound & Structure: Atom",
+    "Type: Compound & Structure: Molecule"
+  ];
+
+  const quizQuestions = [
+    { name: 'Oxygen Gas', formula: 'O₂', atoms: [atomTypes.O, atomTypes.O], options: standardOptions, correct: 1, why: "Oxygen gas (O₂) has 2 atoms (Molecule) of only one type of atom (Element)." },
+    { name: 'Table Salt', formula: 'NaCl', atoms: [atomTypes.Na, atomTypes.Cl], options: standardOptions, correct: 3, why: "Salt (NaCl) has different atoms (Compound) bonded together (Molecule)." },
+    { name: 'Helium', formula: 'He', atoms: [atomTypes.He], options: standardOptions, correct: 0, why: "Helium exists as a single particle (Atom) of one type of matter (Element)." },
+    { name: 'Methane', formula: 'CH₄', atoms: [atomTypes.C, atomTypes.H, atomTypes.H, atomTypes.H, atomTypes.H], options: standardOptions, correct: 3, why: "Methane has 5 atoms (Molecule) and 2 different elements (Compound)." },
+    { name: 'Gold', formula: 'Au', atoms: [atomTypes.Au], options: standardOptions, correct: 0, why: "A gold nugget consists of single Gold atoms (Element)." },
+    { name: 'Nitrogen Gas', formula: 'N₂', atoms: [atomTypes.N, atomTypes.N], options: standardOptions, correct: 1, why: "Nitrogen gas is diatomic, meaning 2 atoms (Molecule) of the same type (Element)." },
+    { name: 'Sugar (Glucose)', formula: 'C₆H₁₂O₆', atoms: [atomTypes.C, atomTypes.H, atomTypes.O], options: standardOptions, correct: 3, why: "Glucose is a large structure (Molecule) made of 3 different elements (Compound)." },
+    { name: 'Argon', formula: 'Ar', atoms: [atomTypes.Ar], options: standardOptions, correct: 0, why: "Argon is a noble gas, existing as a single atom (Atom/Element)." },
+    { name: 'Carbon Monoxide', formula: 'CO', atoms: [atomTypes.C, atomTypes.O], options: standardOptions, correct: 3, why: "CO has 2 atoms (Molecule) that are different types (Compound)." },
+    { name: 'Phosphorus', formula: 'P₄', atoms: [atomTypes.P, atomTypes.P, atomTypes.P, atomTypes.P], options: standardOptions, correct: 1, why: "P₄ has 4 atoms bonded together (Molecule), but they are all the same type (Element)." },
+    // The Final Conceptual Question
+    { 
+      name: 'Critical Thinking', 
+      formula: '???', 
+      isConceptual: true,
+      question: "Which of these combinations is physically IMPOSSIBLE in chemistry?",
+      options: standardOptions, 
+      correct: 2, 
+      why: "A 'Compound Atom' is impossible. By definition, a compound requires TWO or MORE different atoms to be bonded together. A single atom cannot be a compound because it only contains one type of matter." 
+    }
+  ];
+
+  const resetState = () => {
+    setQuizIndex(0);
+    setScore(0);
+    setFeedback(null);
+    setBuildSlot([]);
+    setBuildStep(0);
+    setQuizSelection(null);
+  };
+
+  const handleQuizAnswer = (index) => {
+    if (quizSelection !== null) return;
+    setQuizSelection(index);
+    if (index === quizQuestions[quizIndex].correct) setScore(s => s + 1);
+  };
+
+  const renderAtoms = (atoms, size = "md") => {
+    const dim = size === "md" ? "w-14 h-14 text-sm" : "w-10 h-10 text-xs";
+    return (
+      <div className="flex items-center justify-center gap-1 flex-wrap p-4 bg-slate-50 rounded-xl shadow-inner min-h-[100px]">
+        {atoms.map((a, i) => (
+          <div 
+            key={i} 
+            className={`${dim} rounded-full border-2 border-slate-400 flex items-center justify-center font-bold shadow-sm`}
+            style={{ backgroundColor: a.color, color: a.color === '#1e293b' ? 'white' : 'black' }}
+          >
+            {a.label}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 font-sans text-slate-800">
+      <header className="bg-blue-700 text-white p-6 rounded-2xl shadow-lg mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Beaker className="w-8 h-8" /> 
+            Chemistry Lab: SNC1W
+          </h1>
+          <p className="opacity-90">Atoms, Molecules, Elements, & Compounds</p>
+        </div>
+        <button onClick={() => {setView('menu'); resetState();}} className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm flex items-center gap-2">
+          <RotateCcw className="w-4 h-4" /> Reset
+        </button>
+      </header>
+
+      <div className="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 min-h-[550px]">
+        
+        {view === 'menu' && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-10">
+            <div onClick={() => setView('explore')} className="cursor-pointer group p-6 border-2 border-blue-100 rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-all text-center">
+              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-blue-500 group-hover:text-white transition-colors">
+                <Info className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Explore</h3>
+              <p className="text-sm text-slate-600">Visual gallery of atoms and molecules.</p>
+            </div>
+            <div onClick={() => setView('build')} className="cursor-pointer group p-6 border-2 border-green-100 rounded-2xl hover:border-green-500 hover:bg-green-50 transition-all text-center">
+              <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-green-500 group-hover:text-white transition-colors">
+                <Atom className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Build It</h3>
+              <p className="text-sm text-slate-600">Assemble substances in the workshop.</p>
+            </div>
+            <div onClick={() => setView('quiz')} className="cursor-pointer group p-6 border-2 border-purple-100 rounded-2xl hover:border-purple-500 hover:bg-purple-50 transition-all text-center">
+              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-bold mb-2">Challenge</h3>
+              <p className="text-sm text-slate-600">Standardized classification quiz.</p>
+            </div>
+          </div>
+        )}
+
+        {view === 'explore' && (
+          <div className="animate-in fade-in duration-500">
+            <h2 className="text-2xl font-bold mb-6">Exploration Gallery</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {substances.map(s => (
+                <button key={s.id} onClick={() => setActiveSubstance(s)} className={`p-4 rounded-xl border-2 transition-all ${activeSubstance?.id === s.id ? 'border-blue-600 bg-blue-50 shadow-md' : 'border-slate-200'}`}>
+                  <div className="font-bold">{s.name}</div>
+                  <div className="text-xs text-slate-500">{s.formula}</div>
+                </button>
+              ))}
+            </div>
+            {activeSubstance && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-slate-50 p-6 rounded-2xl">
+                <div>{renderAtoms(activeSubstance.atoms)}</div>
+                <div>
+                  <h3 className="text-xl font-bold">{activeSubstance.name}</h3>
+                  <p className="text-sm text-slate-600 mb-4">{activeSubstance.desc}</p>
+                  <div className="space-y-1 text-xs uppercase font-bold tracking-wider">
+                    <div className="text-orange-600">Type: {activeSubstance.type}</div>
+                    <div className="text-indigo-600">Structure: {activeSubstance.structure}</div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {view === 'build' && (
+          <div className="animate-in slide-in-from-bottom duration-500">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold flex items-center gap-2"><Atom className="text-green-600" /> Workshop</h2>
+              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">Challenge {buildStep + 1} / {buildChallenges.length}</span>
+            </div>
+            
+            <div className="text-center mb-6">
+              <p className="text-lg">Construct: <span className="font-bold text-green-700">{buildChallenges[buildStep].target} ({buildChallenges[buildStep].formula})</span></p>
+              <p className="text-xs text-slate-500 uppercase tracking-widest">{buildChallenges[buildStep].hint}</p>
+            </div>
+
+            <div className="flex flex-col items-center gap-6">
+              <div className="w-full h-40 bg-slate-50 rounded-3xl border-4 border-dashed border-slate-200 flex items-center justify-center gap-3 relative p-4">
+                {buildSlot.map((a, i) => (
+                  <div key={i} onClick={() => setBuildSlot(prev => prev.filter((_, idx) => idx !== i))} className="w-14 h-14 rounded-full border-2 border-slate-400 flex items-center justify-center font-bold shadow-lg cursor-pointer hover:scale-110 transition-transform" style={{ backgroundColor: a.color }}>
+                    {a.label}
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-4">
+                {buildChallenges[buildStep].atomsToProvide.map(sym => (
+                  <button key={sym} onClick={() => setBuildSlot(prev => [...prev, atomTypes[sym]])} className="p-4 bg-white border-2 border-slate-200 rounded-2xl hover:bg-slate-50 transition-colors flex flex-col items-center min-w-[80px]">
+                    <div className="w-10 h-10 rounded-full mb-2 flex items-center justify-center font-bold shadow-sm" style={{ backgroundColor: atomTypes[sym].color }}>{sym}</div>
+                    <span className="text-[10px] uppercase font-bold">{atomTypes[sym].name}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  disabled={buildSlot.length === 0}
+                  onClick={() => {
+                    const counts = {};
+                    buildSlot.forEach(a => counts[a.label] = (counts[a.label] || 0) + 1);
+                    const target = buildChallenges[buildStep].req;
+                    const matches = Object.keys(target).every(k => counts[k] === target[k]) && Object.keys(counts).length === Object.keys(target).length;
+                    
+                    if (matches) {
+                      setFeedback({ success: true, text: `Correct! You built ${buildChallenges[buildStep].target}.` });
+                      if (buildStep < buildChallenges.length - 1) {
+                        setTimeout(() => {
+                          setBuildStep(s => s + 1);
+                          setBuildSlot([]);
+                          setFeedback(null);
+                        }, 2000);
+                      }
+                    } else {
+                      setFeedback({ success: false, text: "Try again! Check the atom count in the formula." });
+                    }
+                  }}
+                  className="bg-green-600 text-white px-8 py-3 rounded-full font-bold hover:bg-green-700 disabled:opacity-50"
+                >
+                  Verify
+                </button>
+                <button onClick={() => setBuildSlot([])} className="text-slate-400 text-sm underline">Clear Beaker</button>
+              </div>
+
+              {feedback && (
+                <div className={`p-4 rounded-xl flex items-center gap-3 w-full animate-in zoom-in duration-300 ${feedback.success ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                  {feedback.success ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                  <p className="font-medium">{feedback.text}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {view === 'quiz' && (
+          <div className="animate-in slide-in-from-right duration-500">
+            {quizIndex < quizQuestions.length ? (
+              <div className="max-w-md mx-auto">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    {quizQuestions[quizIndex].isConceptual ? <HelpCircle className="text-purple-600" /> : <CheckCircle2 className="text-purple-600" />}
+                    Challenge Mode
+                  </h2>
+                  <span className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-xs font-bold">Q{quizIndex + 1} / {quizQuestions.length}</span>
+                </div>
+                
+                <div className="bg-slate-900 text-white rounded-3xl p-6 mb-6 shadow-xl border-4 border-slate-800 flex flex-col items-center">
+                  <div className="text-sm uppercase tracking-widest text-purple-300 font-bold mb-4">{quizQuestions[quizIndex].name}</div>
+                  
+                  {quizQuestions[quizIndex].isConceptual ? (
+                    <div className="text-center p-4">
+                      <p className="text-lg font-medium leading-relaxed">{quizQuestions[quizIndex].question}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-4">{renderAtoms(quizQuestions[quizIndex].atoms, "sm")}</div>
+                      <div className="text-4xl font-mono tracking-widest">{quizQuestions[quizIndex].formula}</div>
+                    </>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  {quizQuestions[quizIndex].options.map((opt, i) => {
+                    let style = "border-slate-200 hover:border-purple-500 hover:bg-purple-50";
+                    if (quizSelection !== null) {
+                      if (i === quizQuestions[quizIndex].correct) style = "border-green-500 bg-green-50 text-green-700";
+                      else if (i === quizSelection) style = "border-red-400 bg-red-50 text-red-700";
+                      else style = "opacity-40 border-slate-100";
+                    }
+                    return (
+                      <button 
+                        key={i} 
+                        disabled={quizSelection !== null} 
+                        onClick={() => handleQuizAnswer(i)} 
+                        className={`w-full text-left p-4 rounded-xl border-2 transition-all flex justify-between items-center group font-medium ${style}`}
+                      >
+                        <span className="text-sm">{opt}</span>
+                        {quizSelection === null && <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {quizSelection !== null && (
+                  <div className="mt-6 animate-in slide-in-from-bottom duration-300">
+                    <div className={`p-4 rounded-xl mb-4 flex items-start gap-3 border ${quizSelection === quizQuestions[quizIndex].correct ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                      <Lightbulb className="w-5 h-5 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm leading-relaxed">{quizQuestions[quizIndex].why}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => {
+                      if (quizIndex < quizQuestions.length - 1) {
+                        nextQuestion();
+                      } else {
+                        setQuizIndex(quizIndex + 1); // Trigger finish screen
+                      }
+                    }} className="w-full bg-purple-600 text-white py-4 rounded-xl font-bold hover:bg-purple-700 flex items-center justify-center gap-2 shadow-lg">
+                      {quizIndex === quizQuestions.length - 1 ? 'Finish Challenge' : 'Next Question'} <ArrowRight className="w-5 h-5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-10">
+                <div className="inline-block p-6 bg-purple-100 rounded-full mb-4"><CheckCircle2 className="w-16 h-16 text-purple-600" /></div>
+                <h2 className="text-3xl font-bold mb-2">Challenge Complete!</h2>
+                <div className="text-5xl font-black text-purple-600 mb-8">{score} / {quizQuestions.length}</div>
+                <button onClick={resetState} className="bg-purple-600 text-white px-10 py-4 rounded-full font-bold shadow-xl active:scale-95 transition-all">Restart</button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <footer className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100">
+          <h4 className="font-bold text-orange-800 mb-2 flex items-center gap-2"><Layers className="w-5 h-5" /> Element vs Compound</h4>
+          <ul className="text-xs space-y-2 text-orange-950">
+            <li>• <strong>Element</strong>: One type of brick (e.g. O₂, Fe, He).</li>
+            <li>• <strong>Compound</strong>: Multiple types of bricks (e.g. NaCl, H₂O).</li>
+          </ul>
+        </div>
+        <div className="bg-indigo-50 p-5 rounded-2xl border border-indigo-100">
+          <h4 className="font-bold text-indigo-800 mb-2 flex items-center gap-2"><Hexagon className="w-5 h-5" /> Atom vs Molecule</h4>
+          <ul className="text-xs space-y-2 text-indigo-950">
+            <li>• <strong>Atom</strong>: A single brick on its own (no subscript).</li>
+            <li>• <strong>Molecule</strong>: Multiple bricks clicked together (subscripts).</li>
+          </ul>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default MatterClassifier;
